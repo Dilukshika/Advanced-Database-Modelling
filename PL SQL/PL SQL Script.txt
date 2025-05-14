@@ -1,0 +1,345 @@
+-- Create the course and modules tables
+CREATE TABLE course (
+   course_id VARCHAR2(13) NOT NULL PRIMARY KEY,
+   title VARCHAR2(200),
+   description VARCHAR2(2000),
+   course_leader VARCHAR2(200),
+   date_modified DATE,
+   number_of_credits NUMBER
+);
+
+CREATE TABLE modules (
+   module_id VARCHAR2(100) NOT NULL PRIMARY KEY,
+   course_id VARCHAR2(13) REFERENCES course (course_id)
+);
+
+
+
+CREATE OR REPLACE PROCEDURE add_course_and_modules (
+    p_course_id        IN VARCHAR2,
+    p_title            IN VARCHAR2,
+    p_description      IN VARCHAR2,
+    p_course_leader    IN VARCHAR2,
+    p_date_modified    IN DATE,
+    p_number_of_credits IN NUMBER,
+    p_module_ids       IN SYS.ODCIVARCHAR2LIST -- Using Oracle's collection type
+) IS
+    -- Exception to handle invalid input
+    invalid_input EXCEPTION;
+BEGIN
+    -- Validate input for course_id, title, course_leader, and number_of_credits
+    IF p_course_id IS NULL OR p_title IS NULL OR p_course_leader IS NULL OR p_number_of_credits IS NULL THEN
+        RAISE invalid_input;
+    END IF;
+
+    IF p_number_of_credits <= 0 THEN
+        RAISE invalid_input;
+    END IF;
+
+    -- Insert data into the course table
+    INSERT INTO course (
+        course_id, title, description, course_leader, date_modified, number_of_credits
+    ) VALUES (
+        p_course_id, p_title, p_description, p_course_leader, p_date_modified, p_number_of_credits
+    );
+
+    -- Insert corresponding modules into the modules table
+    FOR i IN 1..p_module_ids.COUNT LOOP
+        INSERT INTO modules (module_id, course_id)
+        VALUES (p_module_ids(i), p_course_id);
+    END LOOP;
+
+    -- Commit the transaction
+    COMMIT;
+
+EXCEPTION
+    WHEN invalid_input THEN
+        -- Rollback in case of invalid input
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error: Invalid input values.');
+    WHEN OTHERS THEN
+        -- Handle other exceptions
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
+
+
+DECLARE
+    v_module_ids SYS.ODCIVARCHAR2LIST := SYS.ODCIVARCHAR2LIST('IS1S464', 'IS3S662');
+BEGIN
+    add_course_and_modules(
+        p_course_id => 'C001',
+        p_title => 'Computing',
+        p_description => 'Focuses on developing skills that employers demand for roles in the IT industry.',
+        p_course_leader => 'Richard Jones',
+        p_date_modified => TO_DATE('20-APR-2024', 'DD-MON-YYYY'),
+        p_number_of_credits => 120,
+        p_module_ids => v_module_ids
+    );
+END;
+/
+2.	 Inserting Course C002 (Business)
+DECLARE
+    v_module_ids SYS.ODCIVARCHAR2LIST := SYS.ODCIVARCHAR2LIST('BS1S737', 'BS3S374');
+BEGIN
+    add_course_and_modules(
+        p_course_id => 'C002',
+        p_title => 'Business',
+        p_description => 'Focuses on management and looks at the different functions of business and how they inter-relate.',
+        p_course_leader => 'Thomas Page',
+        p_date_modified => TO_DATE('03-MAR-2021', 'DD-MON-YYYY'),
+        p_number_of_credits => 120,
+        p_module_ids => v_module_ids
+    );
+END;
+/
+3.	 Inserting Course C003 (History)
+DECLARE
+    v_module_ids SYS.ODCIVARCHAR2LIST := SYS.ODCIVARCHAR2LIST('HS3S773', 'HS2S484');
+BEGIN
+    add_course_and_modules(
+        p_course_id => 'C003',
+        p_title => 'History',
+        p_description => 'Focus on modern history, from about 1450 to the present day, including regional, national, European, American and global perspectives.',
+        p_course_leader => 'Adam Richards',
+        p_date_modified => TO_DATE('12-MAY-2023', 'DD-MON-YYYY'),
+        p_number_of_credits => 120,
+        p_module_ids => v_module_ids
+    );
+END;
+/
+
+ 
+To verify that the records were inserted correctly, run the following SQL queries:
+-- Check the course table
+SELECT * FROM course;
+-- Check the modules table
+SELECT * FROM modules;
+
+
+
+
+-- QUESTION 2
+-- Procedure that retrieves a count on the number of courses and modules
+CREATE OR REPLACE PROCEDURE 
+    get_course_and_module_count IS 
+    v_course_count NUMBER;
+	v_module_count NUMBER;
+BEGIN
+--Get the total number of courses
+SELECT COUNT(*) into v_course_count FROM course;
+
+--Get the total number of modules
+SELECT COUNT(*) into v_module_count FROM modules;
+--OUTPUT of counts
+DBMS_OUTPUT.PUT_LINE('Total Number of Courses: ' || v_course_count );
+DBMS_OUTPUT.PUT_LINE('Total Number of Modules: ' || v_module_count );
+END;
+/
+-- To execute the counts for courses and modules
+BEGIN 
+	get_course_and_module_count;
+END;
+/
+
+
+
+
+-- QUESTION 3
+CREATE OR REPLACE PROCEDURE getCourseDetails (
+    p_course_id IN VARCHAR2
+) IS
+    v_title VARCHAR2(200);
+    v_leader VARCHAR2(200);
+    v_description VARCHAR2(2000);
+    v_date_modified DATE;
+    v_credits NUMBER;
+BEGIN
+    -- Retrieve course details
+    SELECT 
+        title, 
+        course_leader, 
+        description, 
+        date_modified, 
+        number_of_credits
+    INTO 
+        v_title, 
+        v_leader, 
+        v_description, 
+        v_date_modified, 
+        v_credits
+    FROM course
+    WHERE course_id = p_course_id;
+
+    -- Output the details
+    DBMS_OUTPUT.PUT_LINE('Course Title: ' || v_title);
+    DBMS_OUTPUT.PUT_LINE('Course Leader: ' || v_leader);
+    DBMS_OUTPUT.PUT_LINE('Description: ' || v_description);
+    DBMS_OUTPUT.PUT_LINE('Date Modified: ' || TO_CHAR(v_date_modified, 'DD-MON-YYYY'));
+    DBMS_OUTPUT.PUT_LINE('Number of Credits: ' || v_credits);
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('No course found with ID: ' || p_course_id);
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error retrieving course details: ' || SQLERRM);
+END;
+/
+-- Main block to call the procedure
+BEGIN
+    getCourseDetails('C001');
+END;
+/
+
+
+
+    --QUESTION 4
+DECLARE
+    -- Cursor definition to fetch course details
+    -- This cursor retrieves all the course details from the 'course' table.
+    CURSOR course_cursor IS
+        SELECT course_id, 
+               title, 
+               description, 
+               course_leader, 
+               date_modified, 
+               number_of_credits
+        FROM course;  -- Selecting from the 'course' table
+
+    -- Variables to store each course's details as we fetch them
+    v_course_id        VARCHAR2(13);     -- Variable to hold the course ID
+    v_title            VARCHAR2(200);    -- Variable to hold the course title
+    v_description      VARCHAR2(2000);   -- Variable to hold the course description
+    v_course_leader    VARCHAR2(200);    -- Variable to hold the name of the course leader
+    v_date_modified    DATE;             -- Variable to hold the last modified date of the course
+    v_number_of_credits NUMBER;          -- Variable to hold the number of credits for the course
+
+BEGIN
+    -- Opening the cursor to start fetching data
+    OPEN course_cursor;
+
+    -- Loop to process each course fetched from the cursor
+    LOOP
+        -- Fetch the next record into the variables
+        FETCH course_cursor INTO v_course_id, v_title, v_description, v_course_leader, v_date_modified, v_number_of_credits;
+
+        -- Exit the loop when there are no more records in the cursor
+        EXIT WHEN course_cursor%NOTFOUND;
+
+        -- Output the details of the course
+        -- Printing the course information using DBMS_OUTPUT
+        DBMS_OUTPUT.PUT_LINE('Course ID: ' || v_course_id);
+        DBMS_OUTPUT.PUT_LINE('Title: ' || v_title);
+        DBMS_OUTPUT.PUT_LINE('Description: ' || v_description);
+        DBMS_OUTPUT.PUT_LINE('Course Leader: ' || v_course_leader);
+        DBMS_OUTPUT.PUT_LINE('Date Modified: ' || TO_CHAR(v_date_modified, 'DD-MON-YYYY'));  -- Formatting the date
+        DBMS_OUTPUT.PUT_LINE('Number of Credits: ' || v_number_of_credits);
+        DBMS_OUTPUT.PUT_LINE('-----------------------------');  -- A separator for readability
+    END LOOP;  
+
+    -- Close the cursor to release the resources
+    CLOSE course_cursor;
+
+EXCEPTION
+    -- Exception handling to catch any errors
+    WHEN OTHERS THEN
+        -- If there's an error, print the error message
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+        -- Ensure the cursor is closed if an error occurs
+        IF course_cursor%ISOPEN THEN
+            CLOSE course_cursor;
+        END IF;
+END;
+/
+
+
+
+
+-- QUESTION 5
+CREATE OR REPLACE PROCEDURE delete_course_and_modules (
+    p_course_id IN VARCHAR2
+) IS
+BEGIN
+    -- First, delete the modules associated with the course
+    DELETE FROM modules
+    WHERE course_id = p_course_id;
+    -- Then, delete the course itself
+    DELETE FROM course
+    WHERE course_id = p_course_id;
+    -- Commit the changes
+    COMMIT;
+    -- Output success message
+    DBMS_OUTPUT.PUT_LINE('Course and corresponding modules deleted successfully.');
+
+EXCEPTION
+    -- Exception handling to handle any errors during deletion
+    WHEN OTHERS THEN
+        -- Rollback any changes if an error occurs
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
+
+
+
+-- Call the procedure
+DECLARE
+    v_course_id VARCHAR2(13) := 'C001';  -- Specify the course ID to delete
+BEGIN
+    -- Call the delete_course_and_modules procedure
+    delete_course_and_modules(p_course_id => v_course_id);
+END;
+/
+
+
+SELECT * FROM course;
+SELECT * FROM modules;
+
+
+
+
+--QUESTION 6
+CREATE OR REPLACE TRIGGER module_count_report
+AFTER INSERT OR UPDATE OR DELETE ON modules
+FOR EACH ROW
+DECLARE
+    v_module_count NUMBER;
+BEGIN
+    -- Get the count of modules after the DML operation
+    SELECT COUNT(*) INTO v_module_count FROM modules;
+
+    -- Output the module count
+    DBMS_OUTPUT.PUT_LINE('Total Number of Modules: ' || v_module_count);
+END;
+/
+
+
+-- insert a course 
+INSERT INTO course (course_id, title, description, course_leader, date_modified, number_of_credits)
+VALUES ('C001', 'Computing', 'Focuses on developing skills...', 'Richard Jones', TO_DATE('20-APR-2024', 'DD-MON-YYYY'), 120);
+
+-- insert the module 
+INSERT INTO modules (module_id, course_id)
+VALUES ('IS4S700', 'C001');
+
+SELECT * FROM modules;
+SELECT * FROM course;
+
+
+-- Update an existing module's ID (changing module_id)
+UPDATE modules
+SET module_id = 'IS4S701'
+WHERE module_id = 'IS4S700';
+
+SELECT * FROM modules;
+SELECT * FROM course;
+
+
+-- Delete a module from the modules table
+DELETE FROM modules
+WHERE module_id = 'IS4S701';
+
+SELECT * FROM modules;
+SELECT * FROM course;
+
